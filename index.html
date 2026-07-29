@@ -1,0 +1,1702 @@
+<!doctype html>
+<html lang="en" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bible Journal</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500&amp;family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <style>
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes gentlePulse {
+      0%, 100% { opacity: 0.6; }
+      50% { opacity: 1; }
+    }
+    .fade-up { animation: fadeUp 0.6s ease-out forwards; opacity: 0; }
+    .fade-up-1 { animation-delay: 0.1s; }
+    .fade-up-2 { animation-delay: 0.2s; }
+    .fade-up-3 { animation-delay: 0.3s; }
+    .fade-up-4 { animation-delay: 0.4s; }
+    .gentle-pulse { animation: gentlePulse 3s ease-in-out infinite; }
+
+    /* Botanical SVG background */
+    .botanical-bg {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+    }
+
+    .journal-input {
+      background: transparent;
+      border: none;
+      border-bottom: 1px solid #c9b99a;
+      outline: none;
+      font-family: 'EB Garamond', serif;
+      padding: 8px 0;
+      width: 100%;
+      transition: border-color 0.3s;
+    }
+    .journal-input:focus {
+      border-bottom-color: #8b7355;
+    }
+    .journal-textarea {
+      background: rgba(255,253,248,0.5);
+      border: 1px solid #ddd0b8;
+      border-radius: 8px;
+      outline: none;
+      font-family: 'EB Garamond', serif;
+      padding: 12px 16px;
+      width: 100%;
+      resize: vertical;
+      min-height: 80px;
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+    .journal-textarea:focus {
+      border-color: #8b7355;
+      box-shadow: 0 0 0 3px rgba(139,115,85,0.1);
+    }
+
+    .streak-dot {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px;
+      font-family: 'EB Garamond', serif;
+      transition: all 0.3s;
+    }
+
+    .entry-card {
+      transition: all 0.3s ease;
+      cursor: pointer;
+    }
+    .entry-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(139,115,85,0.12);
+    }
+    .entry-details {
+      display: none;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(139,115,85,0.1);
+    }
+    .entry-details.expanded {
+      display: block;
+    }
+
+    .tab-btn {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 15px;
+      letter-spacing: 0.5px;
+      padding: 10px 20px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      position: relative;
+      transition: color 0.3s;
+    }
+    .tab-btn::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 20%; right: 20%;
+      height: 2px;
+      background: transparent;
+      transition: all 0.3s;
+    }
+    .tab-btn.active::after {
+      background: #8b7355;
+      left: 10%; right: 10%;
+    }
+
+    .toast-msg {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      padding: 12px 28px;
+      border-radius: 24px;
+      font-family: 'EB Garamond', serif;
+      font-size: 15px;
+      z-index: 999;
+      transition: transform 0.4s ease, opacity 0.4s ease;
+      opacity: 0;
+    }
+    .toast-msg.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+
+    .delete-confirm {
+      display: none;
+      gap: 6px;
+    }
+    .delete-confirm.active {
+      display: flex;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 280px;
+      height: 100%;
+      background: #fdf8f0;
+      z-index: 1000;
+      transform: translateX(-100%);
+      transition: transform 0.3s ease;
+      border-right: 1px solid #e8d5c4;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .sidebar.open {
+      transform: translateX(0);
+    }
+    .sidebar-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.3);
+      z-index: 999;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+    .sidebar-overlay.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .sidebar-header {
+      padding: 20px;
+      border-bottom: 1px solid #e8d5c4;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .sidebar-content {
+      flex: 1;
+      padding: 20px;
+      overflow-y: auto;
+    }
+    .sidebar-section {
+      margin-bottom: 24px;
+    }
+    .sidebar-section-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 12px;
+      color: #8b7355;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+      display: block;
+    }
+    .sidebar-item {
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(139,115,85,0.1);
+    }
+    .sidebar-item:last-child {
+      border-bottom: none;
+    }
+
+    /* Scrollbar styling */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #c9b99a; border-radius: 3px; }
+
+    /* iOS-style Flatpickr */
+    .flatpickr-calendar {
+      border: none;
+      border-radius: 16px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.12);
+      font-family: 'EB Garamond', serif;
+      background: linear-gradient(135deg, #fdf8f0 0%, #f5ede0 100%);
+      padding: 12px;
+    }
+
+    .flatpickr-months {
+      padding: 8px 0;
+    }
+
+    .flatpickr-month {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 16px;
+      font-weight: 400;
+      letter-spacing: 0.5px;
+      color: #5c4a33;
+    }
+
+    .flatpickr-prev-month,
+    .flatpickr-next-month {
+      fill: #8b7355;
+      transition: opacity 0.2s;
+    }
+    .flatpickr-prev-month:hover,
+    .flatpickr-next-month:hover {
+      opacity: 0.7;
+    }
+
+    .flatpickr-weekdays {
+      background: transparent;
+      padding: 8px 0;
+    }
+
+    .flatpickr-weekday {
+      font-family: 'EB Garamond', serif;
+      font-size: 12px;
+      color: #8b7355;
+      letter-spacing: 0.5px;
+      font-weight: 500;
+    }
+
+    .flatpickr-days {
+      padding: 8px 0;
+    }
+
+    .flatpickr-day {
+      font-family: 'EB Garamond', serif;
+      font-size: 14px;
+      color: #5c4a33;
+      border-radius: 10px;
+      transition: all 0.2s ease;
+      background: transparent;
+      border: none;
+      padding: 8px;
+    }
+
+    .flatpickr-day:hover:not(.disabled) {
+      background: rgba(139, 115, 85, 0.08);
+      transform: scale(1.05);
+    }
+
+    .flatpickr-day.today {
+      background: #e8d5c4;
+      color: #5c4a33;
+      font-weight: 500;
+      border: none;
+    }
+
+    .flatpickr-day.selected {
+      background: #8b7355;
+      color: #fdf8f0;
+      border-color: #8b7355;
+      font-weight: 600;
+    }
+
+    .flatpickr-day.selected:hover {
+      background: #6f5c47;
+    }
+
+    .flatpickr-day.inRange {
+      background: rgba(139, 115, 85, 0.1);
+    }
+
+    .flatpickr-day.disabled {
+      color: #c9b99a;
+    }
+  </style>
+  <script>
+
+    const SUPABASE_URL = "https://ninzinosmximhmvntkvv.supabase.co";
+    const SUPABASE_KEY = "sb_publishable_r7GhtTtTczCMmaUTbooOZw_WgDamTcS";
+
+    const supabaseClient = window.supabase.createClient(
+      SUPABASE_URL,
+      SUPABASE_KEY
+    );
+
+    async function testSupabaseConnection() {
+    const { data, error } = await supabaseClient.auth.getSession();
+
+    if (error) {
+      console.error("Supabase connection error:", error);
+      return;
+    }
+
+    console.log("Supabase connected successfully");
+    console.log("Current session:", data.session);
+  }
+
+  testSupabaseConnection();
+
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            shiloh: {
+              cream: '#fdf8f0',
+              linen: '#f5ede0',
+              sage: '#b8c5a8',
+              gold: '#c9b99a',
+              earth: '#8b7355',
+              deep: '#5c4a33',
+              blush: '#e8d5c4',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>body { box-sizing: border-box; }</style>
+ 
+  <script>
+// Browser replacements for Canva's private SDKs.
+// Journal entries are stored in Supabase.
+    (() => {
+
+let dataHandler = null;
+
+async function getSignedInUser() {
+  const {
+    data: { user },
+    error
+  } = await supabaseClient.auth.getUser();
+
+  if (error) {
+    console.error('Could not read signed-in user:', error);
+    return null;
+  }
+
+  return user;
+}
+
+async function loadJournalEntries() {
+  const user = await getSignedInUser();
+
+  if (!user) {
+    dataHandler?.onDataChanged([]);
+    return { isOk: true };
+  }
+
+  const { data, error } = await supabaseClient
+    .from('journal_entries')
+    .select('*')
+    .eq('user_id', user.id)
+    .order('journal_date', { ascending: false });
+
+  if (error) {
+    console.error('Could not load journal entries:', error);
+    return { isOk: false, error };
+  }
+
+  const entries = (data || []).map(entry => ({
+    ...entry,
+    date: entry.journal_date,
+    __backendId: entry.id
+  }));
+
+  dataHandler?.onDataChanged(entries);
+
+  return { isOk: true };
+}
+
+window.dataSdk = {
+  async init(handler) {
+    dataHandler = handler;
+    return await loadJournalEntries();
+  },
+
+  async refresh() {
+    return await loadJournalEntries();
+  },
+
+  async create(entry) {
+    try {
+      const user = await getSignedInUser();
+
+      if (!user) {
+        return {
+          isOk: false,
+          error: new Error('Please sign in before saving an entry.')
+        };
+      }
+
+      const { error } = await supabaseClient
+        .from('journal_entries')
+        .insert({
+          user_id: user.id,
+          journal_date: entry.date,
+          book: entry.book,
+          chapter: entry.chapter,
+          verses: entry.verses,
+          reflection: entry.reflection,
+          prayer: entry.prayer,
+        });
+
+      if (error) {
+        console.error('Could not save journal entry:', error);
+        return { isOk: false, error };
+      }
+
+      await loadJournalEntries();
+
+      return { isOk: true };
+    } catch (error) {
+      console.error('Unexpected journal save error:', error);
+      return { isOk: false, error };
+    }
+  },
+
+  async delete(entry) {
+    try {
+      const user = await getSignedInUser();
+
+      if (!user) {
+        return {
+          isOk: false,
+          error: new Error('Please sign in before deleting an entry.')
+        };
+      }
+
+      const { error } = await supabaseClient
+        .from('journal_entries')
+        .delete()
+        .eq('id', entry.__backendId)
+        .eq('user_id', user.id);
+
+      if (error) {
+        console.error('Could not delete journal entry:', error);
+        return { isOk: false, error };
+      }
+
+      await loadJournalEntries();
+
+      return { isOk: true };
+    } catch (error) {
+      console.error('Unexpected journal delete error:', error);
+      return { isOk: false, error };
+    }
+  }
+};
+      let configChangeHandler = null;
+      let defaults = {};
+
+      window.elementSdk = {
+        config: {},
+
+        init(options) {
+          defaults = options.defaultConfig || {};
+          configChangeHandler = options.onConfigChange || null;
+
+          this.config = { ...defaults };
+
+          Promise.resolve(
+            configChangeHandler?.(this.config)
+          );
+
+          return { isOk: true };
+        },
+
+        async setConfig(partial) {
+          this.config = {
+            ...defaults,
+            ...this.config,
+            ...partial
+          };
+
+          await configChangeHandler?.(this.config);
+
+          return { isOk: true };
+        }
+      };
+
+    })();
+  </script>
+
+ </head>
+ <body class="h-full" style="font-family: 'EB Garamond', serif; margin: 0;"><!-- Sidebar Overlay -->
+  <div id="sidebar-overlay" class="sidebar-overlay" onclick="toggleSidebar()"></div><!-- Sidebar -->
+  <div id="sidebar" class="sidebar">
+   <div class="sidebar-header">
+    <h2 style="font-family: 'Cormorant Garamond', serif; font-size: 18px; color: #5c4a33; letter-spacing: 1px; margin: 0;">Menu</h2><button onclick="toggleSidebar()" style="padding: 6px; background: none; border: none; cursor: pointer; color: #8b7355;"> <i data-lucide="x" style="width:24px;height:24px;"></i> </button>
+   </div>
+   <div class="sidebar-content">
+    <div class="sidebar-section"><span class="sidebar-section-title">Navigation</span>
+     <div class="sidebar-item"><button onclick="switchTab('journal'); toggleSidebar();" style="width: 100%; text-align: left; padding: 10px 0; background: none; border: none; color: #5c4a33; font-family: 'EB Garamond', serif; font-size: 16px; cursor: pointer; transition: color 0.2s;"> 📝 Write Entry </button>
+     </div>
+     <div class="sidebar-item"><button onclick="switchTab('entries'); toggleSidebar();" style="width: 100%; text-align: left; padding: 10px 0; background: none; border: none; color: #5c4a33; font-family: 'EB Garamond', serif; font-size: 16px; cursor: pointer; transition: color 0.2s;"> 📖 Your Entries </button>
+     </div>
+    </div>
+    <div class="sidebar-section" style="margin-top: 24px; padding-top: 24px; border-top: 1px solid #e8d5c4;"><span class="sidebar-section-title">Calendar</span>
+     <div style="margin-bottom: 20px;"><!-- Year Selector -->
+      <div style="display: flex; justify-content: center; align-items: center; margin-bottom: 16px;"><input id="calendar-year" type="number" min="1900" max="2100" style="width: 70px; text-align: center; background: #f5ede0; border: 1px solid #e8d5c4; border-radius: 4px; padding: 8px; font-family: 'EB Garamond', serif; color: #5c4a33; font-size: 14px;" onchange="updateCalendarFromYear(event)">
+      </div><!-- Month Selector -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;"><button type="button" id="prev-month" style="padding: 4px 8px; background: none; border: none; color: #8b7355; cursor: pointer; font-size: 16px;">◀</button> <span id="calendar-month-name" style="font-family: 'Cormorant Garamond', serif; font-size: 14px; color: #5c4a33; letter-spacing: 1px; min-width: 100px; text-align: center;">January</span> <button type="button" id="next-month" style="padding: 4px 8px; background: none; border: none; color: #8b7355; cursor: pointer; font-size: 16px;">▶</button>
+      </div><!-- Calendar Grid -->
+      <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; font-size: 12px;"><!-- Weekday headers -->
+       <div style="text-align: center; color: #8b7355; font-weight: 600; font-family: 'EB Garamond', serif; margin-bottom: 4px;">
+        S
+       </div>
+       <div style="text-align: center; color: #8b7355; font-weight: 600; font-family: 'EB Garamond', serif; margin-bottom: 4px;">
+        M
+       </div>
+       <div style="text-align: center; color: #8b7355; font-weight: 600; font-family: 'EB Garamond', serif; margin-bottom: 4px;">
+        T
+       </div>
+       <div style="text-align: center; color: #8b7355; font-weight: 600; font-family: 'EB Garamond', serif; margin-bottom: 4px;">
+        W
+       </div>
+       <div style="text-align: center; color: #8b7355; font-weight: 600; font-family: 'EB Garamond', serif; margin-bottom: 4px;">
+        T
+       </div>
+       <div style="text-align: center; color: #8b7355; font-weight: 600; font-family: 'EB Garamond', serif; margin-bottom: 4px;">
+        F
+       </div>
+       <div style="text-align: center; color: #8b7355; font-weight: 600; font-family: 'EB Garamond', serif; margin-bottom: 4px;">
+        S
+       </div><!-- Calendar dates container -->
+       <div id="calendar-grid" style="grid-column: 1 / -1; display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;"></div>
+      </div>
+     </div>
+    </div>
+   </div>
+<div style="padding: 20px; border-top: 1px solid #e8d5c4; display: flex; flex-direction: column; gap: 8px;">
+
+  <p
+    id="auth-status"
+    style="
+      margin: 0 0 8px;
+      text-align: center;
+      color: #8b7355;
+      font-family: 'EB Garamond', serif;
+      font-size: 14px;
+      overflow-wrap: anywhere;
+    "
+  >
+    Not signed in
+  </p>
+
+  <button
+    id="sign-in-btn"
+    type="button"
+    onclick="openAuthModal()"
+    style="
+      width: 100%;
+      padding: 12px;
+      background: #8b7355;
+      color: #fdf8f0;
+      border: none;
+      border-radius: 8px;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 14px;
+      letter-spacing: 1px;
+      cursor: pointer;
+    "
+  >
+    Sign In
+  </button>
+
+  <button
+    id="sign-out-btn"
+    type="button"
+    onclick="handleSignOut()"
+    style="
+      display: none;
+      width: 100%;
+      padding: 12px;
+      background: transparent;
+      color: #8b7355;
+      border: 1px solid #8b7355;
+      border-radius: 8px;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 14px;
+      letter-spacing: 1px;
+      cursor: pointer;
+    "
+  >
+    Sign Out
+  </button>
+
+</div>
+   </div>
+  </div><!-- Botanical background decoration -->
+  <div class="botanical-bg">
+   <svg viewbox="0 0 800 600" style="width:100%;height:100%;opacity:0.06;" preserveaspectratio="xMidYMid slice"><!-- Branch 1 --> <path d="M-20 580 Q100 500 180 420 Q220 380 260 350" stroke="#8b7355" fill="none" stroke-width="1.5" /> <ellipse cx="140" cy="460" rx="18" ry="30" transform="rotate(-30 140 460)" fill="#b8c5a8" opacity="0.7" /> <ellipse cx="180" cy="420" rx="15" ry="26" transform="rotate(-40 180 420)" fill="#b8c5a8" opacity="0.6" /> <ellipse cx="220" cy="385" rx="14" ry="24" transform="rotate(-35 220 385)" fill="#b8c5a8" opacity="0.5" /> <ellipse cx="100" cy="500" rx="20" ry="32" transform="rotate(-25 100 500)" fill="#b8c5a8" opacity="0.8" /> <!-- Branch 2 --> <path d="M820 50 Q720 120 650 200 Q610 250 580 290" stroke="#8b7355" fill="none" stroke-width="1.2" /> <ellipse cx="700" cy="140" rx="16" ry="28" transform="rotate(35 700 140)" fill="#b8c5a8" opacity="0.5" /> <ellipse cx="660" cy="190" rx="14" ry="24" transform="rotate(40 660 190)" fill="#b8c5a8" opacity="0.4" /> <ellipse cx="620" cy="240" rx="12" ry="22" transform="rotate(30 620 240)" fill="#b8c5a8" opacity="0.3" /> <!-- Small flowers --> <circle cx="250" cy="340" r="4" fill="#e8d5c4" opacity="0.6" /> <circle cx="255" cy="335" r="3" fill="#e8d5c4" opacity="0.5" /> <circle cx="590" cy="280" r="3.5" fill="#e8d5c4" opacity="0.5" /> <circle cx="585" cy="285" r="3" fill="#e8d5c4" opacity="0.4" />
+   </svg>
+  </div><!-- Main App Wrapper -->
+  <div id="app-wrapper" class="h-full w-full overflow-auto" style="background: #fdf8f0; position: relative;"><!-- Menu Button (Fixed at top) --> <button onclick="toggleSidebar()" style="position: fixed; left: 16px; top: 16px; padding: 6px; background: none; border: none; cursor: pointer; color: #8b7355; display: flex; align-items: center; justify-content: center; z-index: 1050;" aria-label="Open menu"> <i data-lucide="menu" style="width:24px;height:24px;"></i> </button> <!-- Content Container -->
+   <div class="relative z-10 max-w-lg mx-auto px-4 pt-20" style="padding-bottom: 40px;"><!-- Header -->
+    <header class="text-center mb-6 fade-up fade-up-1">
+     <div class="flex items-center justify-center gap-2 mb-1">
+      <svg width="20" height="20" viewbox="0 0 24 24" fill="none" stroke="#b8c5a8" stroke-width="1.5"><path d="M12 3C7 3 4 6 4 9c0 4 8 12 8 12s8-8 8-12c0-3-3-6-8-6z" /> <path d="M12 3v18" stroke-dasharray="2 3" />
+      </svg>
+      <h1 id="app-title" style="font-family: 'Cormorant Garamond', serif; font-weight: 300; font-size: 28px; color: #5c4a33; letter-spacing: 2px;">BIBLE JOURNAL</h1>
+      <svg width="20" height="20" viewbox="0 0 24 24" fill="none" stroke="#b8c5a8" stroke-width="1.5"><path d="M12 3C17 3 20 6 20 9c0 4-8 12-8 12S4 13 4 9c0-3 3-6 8-6z" /> <path d="M12 3v18" stroke-dasharray="2 3" />
+      </svg>
+     </div>
+     <p id="greeting-text" style="font-family: 'Cormorant Garamond', serif; font-style: italic; color: #8b7355; font-size: 15px; letter-spacing: 1px; margin-bottom: 28px;">Peace I leave with you; my peace I give you. I do not give to you as the world gives. Do not let your hearts be troubled and do not be afraid.</p>
+     <div style="height: 1px; background: #e8d5c4; margin: 28px 0;"></div>
+    </header><!-- Streak Tracker -->
+    <section id="streak-section" class="mb-6 fade-up fade-up-2" aria-label="Journaling streak">
+     <div class="flex items-center justify-between mb-3"><span style="font-family: 'Cormorant Garamond', serif; font-size: 13px; color: #8b7355; letter-spacing: 1.5px; text-transform: uppercase;">This Week</span> <span id="streak-count" style="font-family: 'Cormorant Garamond', serif; font-size: 13px; color: #b8c5a8; letter-spacing: 1px;">0 day streak</span>
+     </div>
+     <div id="streak-dots" class="flex justify-between px-2"></div>
+    </section><!-- Tabs -->
+    <nav class="flex justify-center gap-1 mb-5 fade-up fade-up-3" aria-label="Main navigation" style="border-bottom: 1px solid #e8d5c4;"><button class="tab-btn active" data-tab="journal" style="color: #5c4a33;" onclick="switchTab('journal')"> <i data-lucide="feather" style="width:14px;height:14px;display:inline;vertical-align:-2px;margin-right:4px;"></i>Journal </button> <button class="tab-btn" data-tab="entries" style="color: #c9b99a;" onclick="switchTab('entries')"> <i data-lucide="book-open" style="width:14px;height:14px;display:inline;vertical-align:-2px;margin-right:4px;"></i>Entries </button>
+    </nav><!-- Journal Tab -->
+    <main id="tab-journal" class="fade-up fade-up-4">
+     <form id="journal-form" onsubmit="handleSubmit(event)"><!-- Date Selector -->
+      <div class="mb-5 mt-6"><label style="font-family: 'Cormorant Garamond', serif; font-size: 12px; color: #8b7355; letter-spacing: 1.5px; text-transform: uppercase; display: block; margin-bottom: 8px;"> Journal Date </label>
+       <div class="flex gap-2 items-center" style="max-width: 240px;">
+        <div style="flex: 1; position: relative;"><input id="input-day" type="text" class="journal-input" placeholder="DD" style="color: #5c4a33; font-size: 16px; text-align: center;" maxlength="2" inputmode="numeric">
+        </div><span style="color: #8b7355; font-size: 18px; font-weight: 300;">/</span>
+        <div style="flex: 1; position: relative;"><input id="input-month" type="text" class="journal-input" placeholder="MM" style="color: #5c4a33; font-size: 16px; text-align: center;" maxlength="2" inputmode="numeric">
+        </div><span style="color: #8b7355; font-size: 18px; font-weight: 300;">/</span>
+        <div style="flex: 1.2; position: relative;"><input id="input-year" type="text" class="journal-input" placeholder="YYYY" style="color: #5c4a33; font-size: 16px; text-align: center;" maxlength="4" inputmode="numeric">
+        </div>
+       </div>
+      </div><!-- Scripture Reference -->
+      <div class="mb-5 mt-6"><label style="font-family: 'Cormorant Garamond', serif; font-size: 12px; color: #8b7355; letter-spacing: 1.5px; text-transform: uppercase; display: block; margin-bottom: 8px;"> Scripture Reading </label>
+       <div class="flex gap-3">
+        <div class="flex-1"><input id="input-book" type="text" class="journal-input" placeholder="Book" style="color: #5c4a33; font-size: 16px;" autocomplete="off">
+        </div>
+        <div style="width: 70px;"><input id="input-chapter" type="text" class="journal-input" placeholder="Ch." style="color: #5c4a33; font-size: 16px; text-align: center;" autocomplete="off">
+        </div>
+        <div style="width: 90px;"><input id="input-verses" type="text" class="journal-input" placeholder="Verses" style="color: #5c4a33; font-size: 16px; text-align: center;" autocomplete="off">
+        </div>
+       </div>
+      </div><!-- Reflection -->
+      <div class="mb-5 mt-6"><label id="reflection-label" for="input-reflection" style="font-family: 'Cormorant Garamond', serif; font-size: 12px; color: #8b7355; letter-spacing: 1.5px; text-transform: uppercase; display: block; margin-bottom: 8px;"> What is God speaking to you today? </label> <textarea id="input-reflection" class="journal-textarea" rows="3" placeholder="Write your thoughts..." style="color: #5c4a33; font-size: 16px; line-height: 1.8;"></textarea>
+      </div><!-- Prayer -->
+      <div class="mb-6 mt-6"><label id="prayer-label" for="input-prayer" style="font-family: 'Cormorant Garamond', serif; font-size: 12px; color: #8b7355; letter-spacing: 1.5px; text-transform: uppercase; display: block; margin-bottom: 8px;"> Write your prayer response... </label> <textarea id="input-prayer" class="journal-textarea" rows="3" placeholder="Dear Lord..." style="color: #5c4a33; font-size: 16px; line-height: 1.8;"></textarea>
+      </div><!-- Submit --> <button id="submit-btn" type="submit" style="width: 100%; padding: 14px; background: #8b7355; color: #fdf8f0; border: none; border-radius: 8px; font-family: 'Cormorant Garamond', serif; font-size: 16px; letter-spacing: 1.5px; text-transform: uppercase; cursor: pointer; transition: all 0.3s;"> Save Entry </button>
+     </form>
+    </main><!-- Entries Tab -->
+    <main id="tab-entries" class="hidden">
+     <div class="mb-5"><input id="search-input" type="text" class="journal-input" placeholder="Search entries..." style="color: #5c4a33; font-size: 16px;" oninput="handleSearch(event)">
+     </div>
+     <div id="entries-list"></div>
+     <p id="no-entries" class="text-center py-10" style="color: #c9b99a; font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 16px;">Your journal entries will appear here.<br>
+       Begin by writing today's reflection.</p>
+     <p id="no-search-results" class="text-center py-10 hidden" style="color: #c9b99a; font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 16px;">No entries match your search.</p>
+    </main><!-- Toast -->
+    <div id="toast" class="toast-msg" style="background: #5c4a33; color: #fdf8f0;"></div>
+   </div>
+  </div>
+  <script>
+    // ── State ──
+    let allEntries = [];
+    let currentTab = 'journal';
+    let isSubmitting = false;
+    let calendarDate = new Date();
+    let datePickerOpen = false;
+    let sidebarOpen = false;
+
+    const defaultConfig = {
+      app_title: 'BIBLE JOURNAL',
+      greeting_text: 'Peace I leave with you; my peace I give you. I do not give to you as the world gives. Do not let your hearts be troubled and do not be afraid.',
+      reflection_prompt: 'What is God speaking to you today?',
+      prayer_prompt: 'Write your prayer response...',
+      background_color: '#fdf8f0',
+      surface_color: '#f5ede0',
+      text_color: '#5c4a33',
+      primary_action_color: '#8b7355',
+      secondary_action_color: '#b8c5a8',
+      font_family: 'Cormorant Garamond',
+      font_size: 16
+    };
+
+    // ── Element SDK ──
+    window.elementSdk.init({
+      defaultConfig,
+      onConfigChange: async (config) => {
+        const c = { ...defaultConfig, ...config };
+        const font = c.font_family || defaultConfig.font_family;
+        const baseSize = c.font_size || defaultConfig.font_size;
+        const baseFontStack = `'EB Garamond', serif`;
+        const headingStack = `'${font}', ${baseFontStack}`;
+
+        // Background
+        document.getElementById('app-wrapper').style.background = c.background_color;
+
+        // Title
+        const titleEl = document.getElementById('app-title');
+        titleEl.textContent = c.app_title;
+        titleEl.style.fontFamily = headingStack;
+        titleEl.style.color = c.text_color;
+        titleEl.style.fontSize = `${baseSize * 1.75}px`;
+
+        // Greeting
+        const greetEl = document.getElementById('greeting-text');
+        greetEl.textContent = c.greeting_text;
+        greetEl.style.fontFamily = headingStack;
+        greetEl.style.color = c.primary_action_color;
+        greetEl.style.fontSize = `${baseSize * 0.94}px`;
+
+        // Prompts
+        const reflLabel = document.getElementById('reflection-label');
+        reflLabel.textContent = c.reflection_prompt;
+        reflLabel.style.color = c.primary_action_color;
+
+        const prayLabel = document.getElementById('prayer-label');
+        prayLabel.textContent = c.prayer_prompt;
+        prayLabel.style.color = c.primary_action_color;
+
+        // Submit button
+        const submitBtn = document.getElementById('submit-btn');
+        submitBtn.style.background = c.primary_action_color;
+        submitBtn.style.color = c.background_color;
+        submitBtn.style.fontFamily = headingStack;
+        submitBtn.style.fontSize = `${baseSize}px`;
+
+        // Streak label colors
+        document.getElementById('streak-count').style.color = c.secondary_action_color;
+
+        // Tab buttons
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+          btn.style.fontFamily = headingStack;
+          btn.style.fontSize = `${baseSize * 0.94}px`;
+          if (btn.classList.contains('active')) {
+            btn.style.color = c.text_color;
+            btn.querySelector('i')?.setAttribute('style', `width:14px;height:14px;display:inline;vertical-align:-2px;margin-right:4px;color:${c.text_color}`);
+          } else {
+            btn.style.color = c.primary_action_color;
+          }
+        });
+
+        // Tab active underline color
+        const styleTag = document.getElementById('dynamic-tab-style') || document.createElement('style');
+        styleTag.id = 'dynamic-tab-style';
+        styleTag.textContent = `.tab-btn.active::after { background: ${c.primary_action_color} !important; }`;
+        if (!styleTag.parentNode) document.head.appendChild(styleTag);
+
+        // Inputs
+        document.querySelectorAll('.journal-input').forEach(el => {
+          el.style.color = c.text_color;
+          el.style.borderBottomColor = c.primary_action_color + '66';
+          el.style.fontSize = `${baseSize}px`;
+        });
+
+        document.querySelectorAll('.journal-textarea').forEach(el => {
+          el.style.color = c.text_color;
+          el.style.borderColor = c.surface_color;
+          el.style.fontSize = `${baseSize}px`;
+        });
+
+        // Toast
+        document.getElementById('toast').style.background = c.text_color;
+        document.getElementById('toast').style.color = c.background_color;
+
+        // Re-render entries & streak
+        renderEntries();
+        renderStreak();
+      },
+      mapToCapabilities: (config) => {
+        const c = { ...defaultConfig, ...config };
+        function makeColor(key) {
+          return {
+            get: () => c[key] || defaultConfig[key],
+            set: (v) => {
+              c[key] = v;
+              window.elementSdk.setConfig({ [key]: v });
+            }
+          };
+        }
+        return {
+          recolorables: [
+            makeColor('background_color'),
+            makeColor('surface_color'),
+            makeColor('text_color'),
+            makeColor('primary_action_color'),
+            makeColor('secondary_action_color')
+          ],
+          borderables: [],
+          fontEditable: {
+            get: () => c.font_family || defaultConfig.font_family,
+            set: (v) => {
+              c.font_family = v;
+              window.elementSdk.setConfig({ font_family: v });
+            }
+          },
+          fontSizeable: {
+            get: () => c.font_size || defaultConfig.font_size,
+            set: (v) => {
+              c.font_size = v;
+              window.elementSdk.setConfig({ font_size: v });
+            }
+          }
+        };
+      },
+      mapToEditPanelValues: (config) => {
+        const c = { ...defaultConfig, ...config };
+        return new Map([
+          ['app_title', c.app_title || defaultConfig.app_title],
+          ['greeting_text', c.greeting_text || defaultConfig.greeting_text],
+          ['reflection_prompt', c.reflection_prompt || defaultConfig.reflection_prompt],
+          ['prayer_prompt', c.prayer_prompt || defaultConfig.prayer_prompt]
+        ]);
+      }
+    });
+
+    // ── Data SDK ──
+    const dataHandler = {
+      onDataChanged(data) {
+        allEntries = data.slice().sort((a, b) => {
+          return (b.date || '').localeCompare(a.date || '');
+        });
+        renderEntries();
+        renderStreak();
+        renderCalendar();
+      }
+    };
+
+    (async () => {
+      const r = await window.dataSdk.init(dataHandler);
+      if (!r.isOk) console.error('Data SDK init failed');
+
+      // Set default date to today (DD/MM/YYYY format)
+      const today = new Date();
+      const day = String(today.getDate()).padStart(2, '0');
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const year = today.getFullYear();
+
+      document.getElementById('input-day').value = day;
+      document.getElementById('input-month').value = month;
+      document.getElementById('input-year').value = year;
+      document.getElementById('calendar-year').value = year;
+
+      // Add input validation for date fields
+      document.getElementById('input-day').addEventListener('input', validateDayInput);
+      document.getElementById('input-month').addEventListener('input', validateMonthInput);
+      document.getElementById('input-year').addEventListener('input', validateYearInput);
+    })();
+
+    // ── Streak ──
+    function renderStreak() {
+      const cfg = { ...defaultConfig, ...(window.elementSdk.config || {}) };
+      const container = document.getElementById('streak-dots');
+      const displayDays = ['S','M','T','W','T','F','S'];
+      const today = new Date();
+      const todayStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+
+      const dayOfWeek = today.getDay();
+      const weekStart = new Date(today);
+      weekStart.setDate(today.getDate() - dayOfWeek);
+
+      const journaledDates = new Set(allEntries.map(e => e.date));
+
+      let streak = 0;
+      const checkDate = new Date(today);
+      while (true) {
+        const checkStr = checkDate.getFullYear() + '-' + String(checkDate.getMonth() + 1).padStart(2, '0') + '-' + String(checkDate.getDate()).padStart(2, '0');
+        if (journaledDates.has(checkStr)) {
+          streak++;
+          checkDate.setDate(checkDate.getDate() - 1);
+        } else break;
+      }
+
+      document.getElementById('streak-count').textContent = `${streak} day streak`;
+
+      if (container.children.length === 0) {
+        container.innerHTML = '';
+        displayDays.forEach((d, i) => {
+          const dot = document.createElement('div');
+          dot.className = 'streak-dot';
+          dot.dataset.index = i;
+          container.appendChild(dot);
+        });
+      }
+
+      [...container.children].forEach((dot, i) => {
+        const dateForDot = new Date(weekStart);
+        dateForDot.setDate(weekStart.getDate() + i);
+        const ds = dateForDot.getFullYear() + '-' + String(dateForDot.getMonth() + 1).padStart(2, '0') + '-' + String(dateForDot.getDate()).padStart(2, '0');
+        const isToday = ds === todayStr;
+        const done = journaledDates.has(ds);
+
+        dot.textContent = displayDays[i];
+        if (done) {
+          dot.style.background = cfg.secondary_action_color;
+          dot.style.color = cfg.background_color;
+          dot.style.border = 'none';
+          dot.style.fontWeight = '600';
+        } else if (isToday) {
+          dot.style.background = 'transparent';
+          dot.style.color = cfg.primary_action_color;
+          dot.style.border = `2px dashed ${cfg.primary_action_color}`;
+          dot.style.fontWeight = '500';
+        } else {
+          dot.style.background = cfg.surface_color;
+          dot.style.color = cfg.primary_action_color + '88';
+          dot.style.border = 'none';
+          dot.style.fontWeight = '400';
+        }
+      });
+    }
+
+    // ── Entries Rendering ──
+    function renderEntries() {
+      const cfg = { ...defaultConfig, ...(window.elementSdk.config || {}) };
+      const list = document.getElementById('entries-list');
+      const noEntries = document.getElementById('no-entries');
+      const noResults = document.getElementById('no-search-results');
+      const font = cfg.font_family || defaultConfig.font_family;
+      const headingStack = `'${font}', 'EB Garamond', serif`;
+
+      const searchTerm = document.getElementById('search-input').value.toLowerCase().trim();
+      const entriesToShow = searchTerm
+        ? allEntries.filter(entry => {
+            const searchableText = [entry.book, entry.chapter, entry.verses, entry.reflection, entry.prayer].join(' ').toLowerCase();
+            return searchableText.includes(searchTerm);
+          })
+        : allEntries;
+
+      if (allEntries.length === 0) {
+        noEntries.classList.remove('hidden');
+        noResults.classList.add('hidden');
+        noEntries.style.color = cfg.primary_action_color + '99';
+        noEntries.style.fontFamily = headingStack;
+        list.innerHTML = '';
+        return;
+      }
+
+      if (searchTerm && entriesToShow.length === 0) {
+        noEntries.classList.add('hidden');
+        noResults.classList.remove('hidden');
+        noResults.style.color = cfg.primary_action_color + '99';
+        noResults.style.fontFamily = headingStack;
+        list.innerHTML = '';
+        return;
+      }
+
+      noEntries.classList.add('hidden');
+      noResults.classList.add('hidden');
+
+      const existingMap = new Map([...list.children].map(el => [el.dataset.id, el]));
+      const fragment = document.createDocumentFragment();
+      const seenIds = new Set();
+
+      entriesToShow.forEach(entry => {
+        const id = entry.__backendId;
+        seenIds.add(id);
+
+        let card = existingMap.get(id);
+        if (!card) {
+          card = document.createElement('article');
+          card.className = 'entry-card mb-4 p-5 rounded-xl';
+          card.dataset.id = id;
+        }
+
+        const dateStr = entry.date
+          ? new Date(entry.date + 'T12:00:00')
+              .toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+              .replace(/(\w+\s)(\d+)(,\s)(\d+)/, '$2 $1 $4')
+              .toUpperCase()
+          : '';
+        const ref = [entry.book, entry.chapter, entry.verses ? `:${entry.verses}` : ''].filter(Boolean).join(' ');
+
+        card.style.background = cfg.surface_color;
+        card.innerHTML = `
+          <div class="flex justify-between items-start mb-3" onclick="toggleEntryDetails('${id}')">
+            <div>
+              <p style="font-family: ${headingStack}; font-size: 11px; color: ${cfg.primary_action_color}; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 4px;">${dateStr}</p>
+              <h3 style="font-family: ${headingStack}; font-size: 20px; color: ${cfg.text_color}; font-weight: 500;">${ref || 'Untitled'}</h3>
+            </div>
+            <div class="flex items-center gap-1">
+              <button class="delete-btn" onclick="event.stopPropagation(); showDeleteConfirm('${id}')" style="padding: 6px; color: ${cfg.primary_action_color}88; cursor: pointer; background: none; border: none; transition: color 0.2s;" aria-label="Delete entry">
+                <i data-lucide="trash-2" style="width:16px;height:16px;"></i>
+              </button>
+              <div id="confirm-${id}" class="delete-confirm items-center">
+                <button onclick="event.stopPropagation(); deleteEntry('${id}')" style="font-family: ${headingStack}; font-size: 12px; padding: 4px 10px; background: #c0392b; color: white; border: none; border-radius: 4px; cursor: pointer;">Delete</button>
+                <button onclick="event.stopPropagation(); hideDeleteConfirm('${id}')" style="font-family: ${headingStack}; font-size: 12px; padding: 4px 10px; background: ${cfg.primary_action_color}33; color: ${cfg.text_color}; border: none; border-radius: 4px; cursor: pointer;">Cancel</button>
+              </div>
+            </div>
+          </div>
+          <div id="details-${id}" class="entry-details">
+            ${entry.reflection ? `
+              <div class="mb-4 pt-3">
+                <p style="font-family: 'Cormorant Garamond', serif; font-size: 12px; color: ${cfg.primary_action_color}; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 8px;">What is God speaking to you today?</p>
+                <p style="font-family: 'EB Garamond', serif; font-size: 15px; line-height: 1.7; color: ${cfg.text_color}cc;">${escapeHtml(entry.reflection)}</p>
+              </div>
+            ` : ''}
+            ${entry.prayer ? `
+              <div class="pt-3" style="border-top: 1px solid rgba(139,115,85,0.1); margin-top: 12px;">
+                <p style="font-family: 'Cormorant Garamond', serif; font-size: 12px; color: ${cfg.primary_action_color}; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 8px; margin-top: 8px;">Write your prayer response...</p>
+                <p style="font-family: 'EB Garamond', serif; font-size: 14px; line-height: 1.7; color: ${cfg.secondary_action_color}; font-style: italic;">🙏 ${escapeHtml(entry.prayer)}</p>
+              </div>
+            ` : ''}
+          </div>
+        `;
+        fragment.appendChild(card);
+      });
+
+      existingMap.forEach((el, id) => {
+        if (!seenIds.has(id)) el.remove();
+      });
+
+      list.innerHTML = '';
+      list.appendChild(fragment);
+      lucide.createIcons();
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    // ── Search handler ──
+    function handleSearch(event) {
+      renderEntries();
+    }
+
+    // ── Toggle entry details ──
+    function toggleEntryDetails(id) {
+      const details = document.getElementById(`details-${id}`);
+      details.classList.toggle('expanded');
+    }
+
+    // ── Delete flow ──
+    function showDeleteConfirm(id) {
+      document.getElementById(`confirm-${id}`).classList.add('active');
+    }
+
+    function hideDeleteConfirm(id) {
+      document.getElementById(`confirm-${id}`).classList.remove('active');
+    }
+
+    async function deleteEntry(id) {
+      const entry = allEntries.find(e => e.__backendId === id);
+      if (!entry) return;
+      const r = await window.dataSdk.delete(entry);
+      if (r.isOk) {
+        showToast('Entry removed');
+      } else {
+        showToast('Could not delete entry');
+      }
+    }
+
+    // ── Submit ──
+    async function handleSubmit(e) {
+      e.preventDefault();
+      if (isSubmitting) return;
+
+      const day = document.getElementById('input-day').value.trim();
+      const month = document.getElementById('input-month').value.trim();
+      const year = document.getElementById('input-year').value.trim();
+
+      if (!day || !month || !year) {
+        showToast('Please enter a valid date');
+        return;
+      }
+
+      const dayNum = parseInt(day, 10);
+      const monthNum = parseInt(month, 10);
+      const yearNum = parseInt(year, 10);
+
+      if (dayNum < 1 || dayNum > 31 || monthNum < 1 || monthNum > 12 || yearNum < 1900 || yearNum > 2100) {
+        showToast('Please enter a valid date');
+        return;
+      }
+
+      const dateStr = `${String(yearNum).padStart(4, '0')}-${String(monthNum).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+      const book = document.getElementById('input-book').value.trim();
+      const chapter = document.getElementById('input-chapter').value.trim();
+      const verses = document.getElementById('input-verses').value.trim();
+      const reflection = document.getElementById('input-reflection').value.trim();
+      const prayer = document.getElementById('input-prayer').value.trim();
+
+      if (!book && !reflection && !prayer) {
+        showToast('Write something to save ✨');
+        return;
+      }
+
+      if (allEntries.length >= 999) {
+        showToast('Journal is full — please remove older entries');
+        return;
+      }
+
+      isSubmitting = true;
+      const btn = document.getElementById('submit-btn');
+      btn.textContent = 'Saving...';
+      btn.style.opacity = '0.6';
+
+      const r = await window.dataSdk.create({
+        date: dateStr,
+        book,
+        chapter,
+        verses,
+        reflection,
+        prayer,
+      });
+
+      if (r.isOk) {
+        showToast('Saved to your journal 🌿');
+        document.getElementById('input-book').value = '';
+        document.getElementById('input-chapter').value = '';
+        document.getElementById('input-verses').value = '';
+        document.getElementById('input-reflection').value = '';
+        document.getElementById('input-prayer').value = '';
+        document.getElementById('input-reflection').focus();
+        btn.textContent = 'SAVE ENTRY';
+        btn.style.opacity = '1';
+      } else {
+        console.error('Save failed:', r.error);
+
+        showToast(
+          r.error?.message ||
+          'Could not save entry'
+        );
+
+        btn.textContent = 'SAVE ENTRY';
+        btn.style.opacity = '1';
+      }
+      isSubmitting = false;
+    }
+
+    // ── Tabs ──
+    function switchTab(tab) {
+      currentTab = tab;
+      const cfg = { ...defaultConfig, ...(window.elementSdk.config || {}) };
+      document.getElementById('tab-journal').classList.toggle('hidden', tab !== 'journal');
+      document.getElementById('tab-entries').classList.toggle('hidden', tab !== 'entries');
+
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        const isActive = btn.dataset.tab === tab;
+        btn.classList.toggle('active', isActive);
+        btn.style.color = isActive ? cfg.text_color : cfg.primary_action_color;
+      });
+
+      if (tab === 'entries') {
+        renderEntries();
+      }
+    }
+
+    // ── Toast ──
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2500);
+    }
+
+    // Init icons
+    lucide.createIcons();
+    renderStreak();
+    renderCalendar();
+
+    // ── Calendar navigation listeners ──
+    document.getElementById('prev-month').addEventListener('click', (e) => {
+      e.preventDefault();
+      changeCalendarMonth(-1);
+    });
+    document.getElementById('next-month').addEventListener('click', (e) => {
+      e.preventDefault();
+      changeCalendarMonth(1);
+    });
+
+    // ── Sidebar toggle ──
+    function toggleSidebar() {
+      sidebarOpen = !sidebarOpen;
+      document.getElementById('sidebar').classList.toggle('open', sidebarOpen);
+      document.getElementById('sidebar-overlay').classList.toggle('open', sidebarOpen);
+      document.querySelector('button[aria-label="Open menu"]').style.display = sidebarOpen ? 'none' : 'flex';
+    }
+
+    // ── Calendar state ──
+    function renderCalendar() {
+      const cfg = { ...defaultConfig, ...(window.elementSdk.config || {}) };
+      const year = calendarDate.getFullYear();
+      const month = calendarDate.getMonth();
+      
+      const today = new Date();
+      const todayStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+      
+      const journaledDates = new Set(allEntries.map(e => e.date));
+
+      // Update month name
+      const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+      document.getElementById('calendar-month-name').textContent = monthNames[month];
+      document.getElementById('calendar-year').value = year;
+
+      // Get first day of month and total days
+      const firstDay = new Date(year, month, 1).getDay();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+      // Build calendar grid
+      const grid = document.getElementById('calendar-grid');
+      grid.innerHTML = '';
+
+      // Add empty cells for days before month starts
+      for (let i = 0; i < firstDay; i++) {
+        const empty = document.createElement('div');
+        grid.appendChild(empty);
+      }
+
+      // Add day cells
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = `${String(year).padStart(4, '0')}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const isToday = dateStr === todayStr;
+        const hasEntry = journaledDates.has(dateStr);
+
+        const dayCell = document.createElement('div');
+        dayCell.style.textAlign = 'center';
+        dayCell.style.fontFamily = "'EB Garamond', serif";
+        dayCell.style.fontSize = '13px';
+        dayCell.style.padding = '6px';
+        dayCell.style.cursor = 'pointer';
+        dayCell.style.display = 'flex';
+        dayCell.style.alignItems = 'center';
+        dayCell.style.justifyContent = 'center';
+        dayCell.style.width = '28px';
+        dayCell.style.height = '28px';
+        dayCell.style.margin = '0 auto';
+        dayCell.style.boxSizing = 'border-box';
+        dayCell.style.transition = 'all 0.2s';
+
+        if (hasEntry) {
+          dayCell.style.background = cfg.secondary_action_color;
+          dayCell.style.color = cfg.background_color;
+          dayCell.style.borderRadius = '50%';
+          dayCell.style.fontWeight = '600';
+          dayCell.style.border = 'none';
+        } else if (isToday) {
+          dayCell.style.background = 'transparent';
+          dayCell.style.color = cfg.primary_action_color;
+          dayCell.style.border = `2px dashed ${cfg.primary_action_color}`;
+          dayCell.style.borderRadius = '50%';
+          dayCell.style.fontWeight = '500';
+        } else {
+          dayCell.style.background = 'transparent';
+          dayCell.style.color = cfg.text_color + '88';
+          dayCell.style.border = 'none';
+          dayCell.style.fontWeight = '400';
+        }
+
+        dayCell.textContent = day;
+        grid.appendChild(dayCell);
+      }
+    }
+
+    function changeCalendarMonth(delta) {
+      calendarDate.setMonth(calendarDate.getMonth() + delta);
+      renderCalendar();
+    }
+
+    function updateCalendarFromYear(e) {
+      let year = parseInt(e.target.value, 10);
+      if (year < 1900) year = 1900;
+      if (year > 2100) year = 2100;
+      e.target.value = year;
+      calendarDate.setFullYear(year);
+      renderCalendar();
+    }
+
+    // ── Date input validation functions ──
+    function validateDayInput(e) {
+      let value = e.target.value.replace(/\D/g, '');
+      if (value.length > 2) value = value.slice(0, 2);
+      if (value && parseInt(value, 10) > 31) value = '31';
+      e.target.value = value;
+    }
+
+    function validateMonthInput(e) {
+      let value = e.target.value.replace(/\D/g, '');
+      if (value.length > 2) value = value.slice(0, 2);
+      if (value && parseInt(value, 10) > 12) value = '12';
+      e.target.value = value;
+    }
+
+    function validateYearInput(e) {
+      let value = e.target.value.replace(/\D/g, '');
+      if (value.length > 4) value = value.slice(0, 4);
+      e.target.value = value;
+    }
+
+    // ── Auto-expand textareas ──
+    function autoExpandTextarea(textarea) {
+      textarea.style.height = 'auto';
+      textarea.style.height = Math.min(textarea.scrollHeight, 400) + 'px';
+    }
+
+    document.getElementById('input-reflection').addEventListener('input', function() {
+      autoExpandTextarea(this);
+    });
+
+    document.getElementById('input-prayer').addEventListener('input', function() {
+      autoExpandTextarea(this);
+    });
+
+</script>
+
+    <div
+  id="auth-modal"
+  style="
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(92, 74, 51, 0.35);
+    z-index: 2000;
+    padding: 20px;
+    align-items: center;
+    justify-content: center;
+  "
+>
+  <div
+    style="
+      width: 100%;
+      max-width: 390px;
+      background: #fdf8f0;
+      border: 1px solid #e8d5c4;
+      border-radius: 16px;
+      padding: 28px;
+      box-shadow: 0 16px 50px rgba(92, 74, 51, 0.18);
+      position: relative;
+    "
+  >
+    <button
+      type="button"
+      onclick="closeAuthModal()"
+      aria-label="Close"
+      style="
+        position: absolute;
+        top: 14px;
+        right: 14px;
+        border: none;
+        background: transparent;
+        color: #8b7355;
+        cursor: pointer;
+      "
+    >
+      <i data-lucide="x" style="width: 22px; height: 22px;"></i>
+    </button>
+
+    <div style="text-align: center; margin-bottom: 24px;">
+      <h2
+        style="
+          margin: 0 0 6px;
+          font-family: 'Cormorant Garamond', serif;
+          color: #5c4a33;
+          font-size: 26px;
+          font-weight: 400;
+          letter-spacing: 1px;
+        "
+      >
+        Welcome
+      </h2>
+
+      <p
+        id="auth-description"
+        style="
+          margin: 0;
+          color: #8b7355;
+          font-family: 'EB Garamond', serif;
+          font-size: 15px;
+        "
+      >
+        Sign in to access your journal
+      </p>
+    </div>
+
+    <form id="auth-form" onsubmit="handleAuthSubmit(event)">
+      <div style="margin-bottom: 18px;">
+        <label
+          for="auth-email"
+          style="
+            display: block;
+            margin-bottom: 6px;
+            color: #8b7355;
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 12px;
+            letter-spacing: 1.2px;
+            text-transform: uppercase;
+          "
+        >
+          Email
+        </label>
+
+        <input
+          id="auth-email"
+          type="email"
+          required
+          autocomplete="email"
+          class="journal-input"
+          placeholder="you@example.com"
+          style="color: #5c4a33; font-size: 16px;"
+        />
+      </div>
+
+      <div style="margin-bottom: 20px;">
+        <label
+          for="auth-password"
+          style="
+            display: block;
+            margin-bottom: 6px;
+            color: #8b7355;
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 12px;
+            letter-spacing: 1.2px;
+            text-transform: uppercase;
+          "
+        >
+          Password
+        </label>
+
+        <input
+          id="auth-password"
+          type="password"
+          required
+          minlength="6"
+          autocomplete="current-password"
+          class="journal-input"
+          placeholder="Enter your password"
+          style="color: #5c4a33; font-size: 16px;"
+        />
+      </div>
+
+      <p
+        id="auth-error"
+        style="
+          display: none;
+          margin: 0 0 14px;
+          color: #a04b40;
+          font-family: 'EB Garamond', serif;
+          font-size: 14px;
+          text-align: center;
+        "
+      ></p>
+
+      <button
+        id="auth-submit-btn"
+        type="submit"
+        style="
+          width: 100%;
+          padding: 13px;
+          background: #8b7355;
+          color: #fdf8f0;
+          border: none;
+          border-radius: 8px;
+          font-family: 'Cormorant Garamond', serif;
+          font-size: 15px;
+          letter-spacing: 1.2px;
+          cursor: pointer;
+        "
+      >
+        Sign In
+      </button>
+    </form>
+
+    <button
+      id="auth-switch-btn"
+      type="button"
+      onclick="toggleAuthMode()"
+      style="
+        width: 100%;
+        margin-top: 14px;
+        padding: 8px;
+        border: none;
+        background: transparent;
+        color: #8b7355;
+        font-family: 'EB Garamond', serif;
+        font-size: 15px;
+        cursor: pointer;
+      "
+    >
+      New here? Create an account
+    </button>
+  </div>
+</div>
+
+<script>
+
+let currentUser = null;
+let authMode = "signin";
+
+function openAuthModal() {
+  const modal = document.getElementById("auth-modal");
+
+  modal.style.display = "flex";
+  document.getElementById("auth-error").style.display = "none";
+  document.getElementById("auth-password").value = "";
+
+  lucide.createIcons();
+
+  setTimeout(() => {
+    document.getElementById("auth-email").focus();
+  }, 50);
+}
+
+function closeAuthModal() {
+  document.getElementById("auth-modal").style.display = "none";
+}
+
+function toggleAuthMode() {
+  authMode = authMode === "signin" ? "signup" : "signin";
+
+  const description = document.getElementById("auth-description");
+  const submitButton = document.getElementById("auth-submit-btn");
+  const switchButton = document.getElementById("auth-switch-btn");
+  const passwordInput = document.getElementById("auth-password");
+  const errorElement = document.getElementById("auth-error");
+
+  errorElement.style.display = "none";
+
+  if (authMode === "signup") {
+    description.textContent = "Create an account to save your journal";
+    submitButton.textContent = "Create Account";
+    switchButton.textContent = "Already have an account? Sign in";
+    passwordInput.autocomplete = "new-password";
+  } else {
+    description.textContent = "Sign in to access your journal";
+    submitButton.textContent = "Sign In";
+    switchButton.textContent = "New here? Create an account";
+    passwordInput.autocomplete = "current-password";
+  }
+}
+
+async function handleAuthSubmit(event) {
+  event.preventDefault();
+
+  const email = document
+    .getElementById("auth-email")
+    .value
+    .trim();
+
+  const password = document
+    .getElementById("auth-password")
+    .value;
+
+  const submitButton = document.getElementById("auth-submit-btn");
+  const errorElement = document.getElementById("auth-error");
+
+  errorElement.style.display = "none";
+  submitButton.disabled = true;
+  submitButton.style.opacity = "0.6";
+  submitButton.textContent =
+    authMode === "signup" ? "Creating..." : "Signing In...";
+
+  try {
+    if (authMode === "signup") {
+      const { data, error } = await supabaseClient.auth.signUp({
+        email,
+        password
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      if (data.session) {
+        showToast("Account created successfully 🌿");
+        closeAuthModal();
+      } else {
+        showToast("Check your email to confirm your account");
+        closeAuthModal();
+      }
+    } else {
+      const { error } =
+        await supabaseClient.auth.signInWithPassword({
+          email,
+          password
+        });
+
+      if (error) {
+        throw error;
+      }
+
+      showToast("Welcome back 🌿");
+      closeAuthModal();
+    }
+  } catch (error) {
+    console.error("Authentication error:", error);
+
+    errorElement.textContent =
+      error.message || "Authentication failed";
+
+    errorElement.style.display = "block";
+  } finally {
+    submitButton.disabled = false;
+    submitButton.style.opacity = "1";
+    submitButton.textContent =
+      authMode === "signup" ? "Create Account" : "Sign In";
+  }
+}
+
+async function handleSignOut() {
+  const { error } = await supabaseClient.auth.signOut({
+    scope: "local"
+  });
+
+  if (error) {
+    console.error("Sign-out error:", error);
+    showToast("Could not sign out");
+    return;
+  }
+
+  showToast("Signed out");
+  toggleSidebar();
+}
+
+function updateAuthDisplay(user) {
+  currentUser = user;
+
+  const status = document.getElementById("auth-status");
+  const signInButton = document.getElementById("sign-in-btn");
+  const signOutButton = document.getElementById("sign-out-btn");
+  const submitButton = document.getElementById("submit-btn");
+
+  if (user) {
+    status.textContent = user.email;
+    signInButton.style.display = "none";
+    signOutButton.style.display = "block";
+
+    submitButton.disabled = false;
+    submitButton.style.opacity = "1";
+  } else {
+    status.textContent = "Not signed in";
+    signInButton.style.display = "block";
+    signOutButton.style.display = "none";
+
+    submitButton.disabled = true;
+    submitButton.style.opacity = "0.5";
+  }
+}
+
+async function initialiseAuthentication() {
+  const {
+    data: { session },
+    error
+  } = await supabaseClient.auth.getSession();
+
+  if (error) {
+    console.error("Could not read session:", error);
+  }
+
+  updateAuthDisplay(session?.user || null);
+
+  supabaseClient.auth.onAuthStateChange((event, session) => {
+      console.log('Authentication event:', event);
+
+      updateAuthDisplay(session?.user || null);
+
+      // Clear UI immediately if the user is signed out
+      if (!session) {
+          allEntries = [];
+          renderEntries();
+          renderStreak();
+          renderCalendar();
+      }
+
+      // Reload data whenever auth changes
+      setTimeout(() => {
+          window.dataSdk?.refresh();
+      }, 0);
+  });
+}
+
+initialiseAuthentication();
+
+  </script>
+ </body>
+</html>
