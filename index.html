@@ -2,7 +2,9 @@
 <html lang="en" class="h-full">
  <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#fdf8f0">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <title>Bible Journal</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
@@ -426,8 +428,20 @@
     }
 
     @media (max-width: 640px) {
-      body { padding-bottom: env(safe-area-inset-bottom); }
-      #app-wrapper { overflow-x: hidden; }
+      html, body {
+        min-height: 100%;
+        background: #fdf8f0;
+      }
+      body {
+        padding: 0;
+        margin: 0;
+      }
+      #app-wrapper {
+        min-height: 100vh;
+        min-height: 100dvh;
+        overflow-x: hidden;
+        background: linear-gradient(180deg, #fdf8f0 0%, #fbf5eb 48%, #f5ede0 100%);
+      }
       .botanical-bg { opacity: .55; }
 
       button[aria-label="Open menu"] {
@@ -442,7 +456,7 @@
       }
 
       .app-content {
-        padding: calc(72px + env(safe-area-inset-top)) 16px 118px !important;
+        padding: calc(72px + env(safe-area-inset-top)) 16px calc(112px + env(safe-area-inset-bottom)) !important;
       }
 
       header {
@@ -553,18 +567,23 @@
 
       .mobile-bottom-nav {
         position: fixed;
-        left: 10px;
-        right: 10px;
-        bottom: max(10px, env(safe-area-inset-bottom));
+        left: 0;
+        right: 0;
+        bottom: 0;
         z-index: 900;
         display: grid;
         grid-template-columns: repeat(3, 1fr);
-        padding: 7px;
-        background: rgba(253, 248, 240, .94);
-        border: 1px solid rgba(232, 213, 196, .95);
-        border-radius: 20px;
-        box-shadow: 0 14px 38px rgba(92, 74, 51, .16);
-        backdrop-filter: blur(16px);
+        gap: 4px;
+        padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+        background: rgba(253, 248, 240, .96);
+        border-top: 1px solid rgba(232, 213, 196, .95);
+        border-left: none;
+        border-right: none;
+        border-bottom: none;
+        border-radius: 22px 22px 0 0;
+        box-shadow: 0 -10px 30px rgba(92, 74, 51, .12);
+        -webkit-backdrop-filter: blur(18px);
+        backdrop-filter: blur(18px);
       }
 
       .mobile-nav-btn {
@@ -589,7 +608,7 @@
       }
 
       .mobile-nav-btn svg { width: 19px; height: 19px; }
-      .toast-msg { bottom: 92px; width: max-content; max-width: calc(100vw - 32px); }
+      .toast-msg { bottom: calc(92px + env(safe-area-inset-bottom)); width: max-content; max-width: calc(100vw - 32px); }
     }
 
     @media (max-width: 370px) {
@@ -954,7 +973,7 @@ window.dataSdk = {
       </div><!-- Scripture Reference -->
       <div class="journal-section-card scripture-card"><label style="font-family: 'Cormorant Garamond', serif; font-size: 12px; color: #8b7355; letter-spacing: 1.5px; text-transform: uppercase; display: block; margin-bottom: 8px;"> <i data-lucide="book-open" style="width:14px;height:14px;display:inline;vertical-align:-2px;margin-right:5px;"></i>Scripture Reading </label>
        <div class="scripture-fields">
-        <div class="flex-1"><input id="input-book" type="text" class="journal-input" placeholder="Book" style="color: #5c4a33; font-size: 16px;" autocomplete="off">
+        <div class="flex-1"><input id="input-book" type="text" class="journal-input" placeholder="Book" style="color: #5c4a33; font-size: 16px; text-align: center;" autocomplete="off">
         </div>
         <div style="width: 70px;"><input id="input-chapter" type="text" class="journal-input" placeholder="Ch." style="color: #5c4a33; font-size: 16px; text-align: center;" autocomplete="off">
         </div>
@@ -981,9 +1000,9 @@ window.dataSdk = {
    </div>
   </div>
   <nav class="mobile-bottom-nav" aria-label="Mobile navigation">
+   <button type="button" class="mobile-nav-btn" data-mobile-tab="calendar" onclick="mobileNavigate('calendar')"><i data-lucide="calendar-days"></i><span>Calendar</span></button>
    <button type="button" class="mobile-nav-btn active" data-mobile-tab="journal" onclick="mobileNavigate('journal')"><i data-lucide="feather"></i><span>Journal</span></button>
    <button type="button" class="mobile-nav-btn" data-mobile-tab="entries" onclick="mobileNavigate('entries')"><i data-lucide="book-open"></i><span>Entries</span></button>
-   <button type="button" class="mobile-nav-btn" data-mobile-tab="calendar" onclick="mobileNavigate('calendar')"><i data-lucide="calendar-days"></i><span>Calendar</span></button>
   </nav>
   <script>
     // ── State ──
